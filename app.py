@@ -4,7 +4,7 @@ Upload 1 xlsx với 5 sheets: Media Plan, Facebook Raw data, Google Raw data, Go
 """
 import streamlit as st
 from parse_data import parse_all
-from helpers import CSS
+from helpers import CSS, drive_download_file, drive_upload_file, _get_pin
 from tabs import tab_overview, tab_branding, tab_messenger, tab_cpas, tab_google
 
 st.set_page_config(page_title="Nucos Media Dashboard", page_icon="📊",
@@ -15,15 +15,61 @@ st.markdown(CSS, unsafe_allow_html=True)
 st.markdown("## 📊 Nucos × Miss World VN 2026 — Media Dashboard")
 st.markdown("---")
 
-# ── Upload ────────────────────────────────────────────────────────────────────
-with st.expander("📂 Upload File dữ liệu (.xlsx)", expanded=True):
-    uploaded = st.file_uploader(
-        "Upload 1 file xlsx với các sheets: Media Plan, Facebook Raw data, Google Raw data, Google KW Raw data, Messenger Sale Data",
-        type=['xlsx'], label_visibility='collapsed'
-    )
+# ── Auto-load from Google Drive ───────────────────────────────────────────────
+@st.cache_data(ttl=3600)
+def load_from_drive():
+    return drive_download_file()
 
-if not uploaded:
-    st.info("Upload file xlsx để bắt đầu.")
+drive_bytes = load_from_drive()
+data_bytes  = drive_bytes  # None nếu chưa cấu hình Drive
+
+# ── Upload panel (PIN protected) ──────────────────────────────────────────────
+exp_title = "📂 Cập nhật dữ liệu (.xlsx)" if drive_bytes else "📂 Upload File dữ liệu (.xlsx)"
+with st.expander(exp_title, expanded=not bool(drive_bytes)):
+    if drive_bytes:
+        st.success("☁️ Dữ liệu đã được tải từ cloud. Upload file mới để cập nhật số.")
+
+    if not st.session_state.get('_upload_auth'):
+        c_pin, c_btn, c_hint = st.columns([3, 1, 4])
+        with c_pin:
+            pin_input = st.text_input('', placeholder='Nhập PIN để upload...', type='password',
+                                      key='_upload_pin_input', label_visibility='collapsed')
+        with c_btn:
+            if st.button('🔓 Xác nhận', key='_upload_pin_btn', use_container_width=True):
+                if pin_input == _get_pin():
+                    st.session_state['_upload_auth'] = True
+                    st.rerun()
+                else:
+                    st.error('PIN không đúng.')
+        with c_hint:
+            st.caption('🔒 Chỉ owner mới có thể upload dữ liệu mới.')
+    else:
+        col_file, col_lock = st.columns([8, 1])
+        with col_file:
+            new_file = st.file_uploader(
+                "Upload 1 file xlsx với các sheets: Media Plan, Facebook Raw data, Google Raw data, Google KW Raw data, Messenger Sale Data",
+                type=['xlsx'], label_visibility='collapsed'
+            )
+        with col_lock:
+            if st.button('🔒 Lock', key='_upload_lock', use_container_width=True, help='Khoá lại upload'):
+                st.session_state['_upload_auth'] = False
+                st.rerun()
+        if new_file:
+            raw = new_file.read()
+            with st.spinner("Đang lưu lên Drive..."):
+                ok = drive_upload_file(raw)
+            if ok:
+                st.success("✅ Đã lưu lên Drive! Mọi người sẽ thấy số mới khi refresh.")
+            else:
+                st.warning("⚠️ Chưa cấu hình Drive secrets. Dữ liệu chỉ có trong session này.")
+            st.cache_data.clear()
+            data_bytes = raw
+
+if not data_bytes:
+    if st.session_state.get('_upload_auth'):
+        st.info("Upload file xlsx để bắt đầu.")
+    else:
+        st.info("🔒 Dashboard đang khoá. Nhập PIN phía trên để upload dữ liệu.")
     st.stop()
 
 # ── Parse ─────────────────────────────────────────────────────────────────────
@@ -38,7 +84,7 @@ with col_btn:
         st.rerun()
 
 with st.spinner("Đang xử lý dữ liệu..."):
-    data = load_data(uploaded.read())
+    data = load_data(data_bytes)
 
 plan       = data.get('plan', {})
 br         = data.get('branding', {})

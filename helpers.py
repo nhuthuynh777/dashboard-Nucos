@@ -1,4 +1,5 @@
 """helpers.py — Shared UI components for Nucos Dashboard."""
+import io
 import json
 import os
 from pathlib import Path
@@ -32,6 +33,60 @@ def _get_pin():
         return st.secrets.get('INSIGHT_PIN', '1234')
     except Exception:
         return os.environ.get('INSIGHT_PIN', '1234')
+
+
+def drive_download_file():
+    """Download data xlsx from Google Drive. Returns bytes or None."""
+    try:
+        from google.oauth2 import service_account
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaIoBaseDownload
+
+        file_id = st.secrets.get('DRIVE_FILE_ID', '')
+        if not file_id:
+            return None
+        creds_info = dict(st.secrets.get('GOOGLE_SERVICE_ACCOUNT', {}))
+        if not creds_info:
+            return None
+        credentials = service_account.Credentials.from_service_account_info(
+            creds_info, scopes=['https://www.googleapis.com/auth/drive']
+        )
+        service = build('drive', 'v3', credentials=credentials)
+        request = service.files().get_media(fileId=file_id)
+        buf = io.BytesIO()
+        dl = MediaIoBaseDownload(buf, request)
+        done = False
+        while not done:
+            _, done = dl.next_chunk()
+        return buf.getvalue()
+    except Exception:
+        return None
+
+
+def drive_upload_file(file_bytes):
+    """Replace data xlsx in Google Drive. Returns True on success."""
+    try:
+        from google.oauth2 import service_account
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaIoBaseUpload
+
+        file_id = st.secrets.get('DRIVE_FILE_ID', '')
+        creds_info = dict(st.secrets.get('GOOGLE_SERVICE_ACCOUNT', {}))
+        if not file_id or not creds_info:
+            return False
+        credentials = service_account.Credentials.from_service_account_info(
+            creds_info, scopes=['https://www.googleapis.com/auth/drive']
+        )
+        service = build('drive', 'v3', credentials=credentials)
+        media = MediaIoBaseUpload(
+            io.BytesIO(file_bytes),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        service.files().update(fileId=file_id, media_body=media).execute()
+        return True
+    except Exception:
+        return False
+
 
 C = dict(accent='#6c63ff', green='#22c55e', yellow='#f59e0b',
          pink='#ec4899', blue='#3b82f6', red='#ef4444', purple='#a855f7')
