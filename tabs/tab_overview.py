@@ -65,8 +65,8 @@ def render(plan, br, msg, cpas, gg, crm, ov, date_range,
     sem_sp       = ov.get('search_spend', 0)
     crm_rev      = crm.get('total_revenue', 0)
 
-    # Plan total — auto-scan + fallback sum known budgets
-    total_plan   = plan.get('total_budget', 0)
+    # Plan total — Media Plan 45M + CPAS Plan 10M
+    total_plan   = plan.get('total_budget', 0) + (cpas_plan or {}).get('budget', 0)
     if not total_plan:
         total_plan = (plan_eng.get('budget', 0) + plan_vid.get('budget', 0) +
                       plan_rch.get('budget', 0) + plan_msg.get('budget', 0))
