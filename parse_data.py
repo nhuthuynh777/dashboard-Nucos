@@ -559,17 +559,22 @@ def parse_cpas_plan(ws):
 # ── FB date range detection ───────────────────────────────────────────────────
 
 def get_fb_date_range(ws):
-    """Scan FB Raw sheet for datetime values to detect report period."""
+    """Scan FB Raw sheet for date values (datetime object or string YYYY-MM-DD)."""
     dates = []
     for row in ws.iter_rows(min_row=2, max_row=500, values_only=True):
         if not row:
             continue
-        for val in row[:3]:  # dates usually in first few columns
+        for val in row[:3]:
             if isinstance(val, datetime.datetime):
                 dates.append(val.date())
             elif isinstance(val, datetime.date):
                 dates.append(val)
-        if len(dates) >= 20:  # enough samples
+            elif isinstance(val, str):
+                try:
+                    dates.append(datetime.date.fromisoformat(val.strip()))
+                except (ValueError, AttributeError):
+                    pass
+        if len(dates) >= 20:
             break
     if dates:
         d_start, d_end = min(dates), max(dates)
@@ -591,7 +596,7 @@ def parse_crm(ws, date_start=None, date_end=None):
     """
     orders = []
     for row in ws.iter_rows(min_row=7, values_only=True):
-        if not row or not isinstance(row[0], (int, float)):
+        if not row or not isinstance(row[0], (int, float)) or row[1] is None:
             continue
         status  = sv(row[8])
         channel = sv(row[14])
