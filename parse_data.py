@@ -603,7 +603,11 @@ def parse_crm(ws, date_start=None, date_end=None):
         product = sv(row[2])
         kh_type = sv(row[13])
         date    = row[1]
-        revenue = fv(row[7])
+        raw_rev = row[7]
+        revenue = fv(raw_rev)
+        # Cells with formula results store value in thousands unit (e.g. 535.5 = 535,500đ)
+        if isinstance(raw_rev, (int, float)) and not isinstance(raw_rev, bool) and revenue < 100_000:
+            revenue *= 1000
         qty     = fv(row[4])
 
         if date_start and date_end:
