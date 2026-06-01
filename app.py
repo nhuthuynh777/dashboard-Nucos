@@ -7,12 +7,12 @@ from parse_data import parse_all
 from helpers import CSS, drive_download_file, drive_upload_file, _get_pin
 from tabs import tab_overview, tab_branding, tab_messenger, tab_cpas, tab_google
 
-st.set_page_config(page_title="Nucos Media Dashboard", page_icon="📊",
+st.set_page_config(page_title="Nucos Monthly Campaign Report - Media Dashboard", page_icon="📊",
                    layout="wide", initial_sidebar_state="collapsed")
 st.markdown(CSS, unsafe_allow_html=True)
 
 # ── Header ────────────────────────────────────────────────────────────────────
-st.markdown("## 📊 Nucos × Miss World VN 2026 — Media Dashboard")
+st.markdown("## 📊 Nucos Monthly Campaign Report - Media Dashboard")
 st.markdown("---")
 
 # ── Auto-load from Google Drive ───────────────────────────────────────────────
