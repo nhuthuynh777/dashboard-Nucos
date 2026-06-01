@@ -9,76 +9,23 @@ import plotly.graph_objects as go
 _INSIGHT_FILE = Path(__file__).parent / 'insight_notes.json'
 
 
-def _drive_insight_service():
-    """Returns (service, file_id) or (None, None) if not configured."""
-    try:
-        from google.oauth2 import service_account
-        from googleapiclient.discovery import build
-        file_id = st.secrets.get('DRIVE_INSIGHT_FILE_ID', '')
-        creds_info = dict(st.secrets.get('GOOGLE_SERVICE_ACCOUNT', {}))
-        if not file_id or not creds_info:
-            return None, None
-        creds = service_account.Credentials.from_service_account_info(
-            creds_info, scopes=['https://www.googleapis.com/auth/drive']
-        )
-        return build('drive', 'v3', credentials=creds), file_id
-    except Exception:
-        return None, None
-
-
 def _load_insights():
-    # Try Drive first
-    try:
-        from googleapiclient.http import MediaIoBaseDownload
-        svc, file_id = _drive_insight_service()
-        if svc:
-            buf = io.BytesIO()
-            dl = MediaIoBaseDownload(buf, svc.files().get_media(fileId=file_id))
-            done = False
-            while not done:
-                _, done = dl.next_chunk()
-            content = buf.getvalue().decode('utf-8').strip()
-            if content:
-                return json.loads(content)
-    except Exception:
-        pass
-    # Fallback to local file
     try:
         return json.loads(_INSIGHT_FILE.read_text(encoding='utf-8'))
     except Exception:
         return {}
 
 
-def _save_insights_to_drive(data):
-    """Upload full insights dict to Drive. Returns True on success."""
-    try:
-        from googleapiclient.http import MediaIoBaseUpload
-        svc, file_id = _drive_insight_service()
-        if not svc:
-            return False
-        content = json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8')
-        media = MediaIoBaseUpload(io.BytesIO(content), mimetype='application/json')
-        svc.files().update(fileId=file_id, media_body=media).execute()
-        return True
-    except Exception:
-        return False
-
-
 def _save_insight(tab_key, text):
     data = _load_insights()
     data[tab_key] = text
-    if not _save_insights_to_drive(data):
-        _INSIGHT_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
-    # Clear session cache so next render re-fetches
-    st.session_state.pop('_insights_cache', None)
+    _INSIGHT_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
 def _delete_insight(tab_key):
     data = _load_insights()
     data.pop(tab_key, None)
-    if not _save_insights_to_drive(data):
-        _INSIGHT_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
-    st.session_state.pop('_insights_cache', None)
+    _INSIGHT_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
 def _get_pin():

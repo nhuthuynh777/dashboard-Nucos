@@ -4,4 +4,3 @@ __pycache__/
 .streamlit/secrets.toml
 *.egg-info/
 .DS_Store
-insight_notes.json
