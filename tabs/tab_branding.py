@@ -164,4 +164,67 @@ def render(br, plan_eng, plan_vid, plan_rch):
         else:
             st.info("Không có dữ liệu Video ads.")
 
+        # --- AI vs Non-AI comparison ---
+        section("AI vs Non-AI Content — Performance Comparison", "blue")
+
+        def _cmp_table(cmp, result_label, cost_label):
+            ai  = cmp.get('ai', {})
+            non = cmp.get('non_ai', {})
+            total_sp = (ai.get('spend', 0) + non.get('spend', 0)) or 1
+
+            def _row(label, d, color):
+                if not d or d.get('spend', 0) == 0:
+                    return None
+                sp_pct = d['spend'] / total_sp * 100
+                return [
+                    f'<span style="color:{color};font-weight:600">{label}</span>',
+                    f'<span style="color:#8892a4">{d["count"]} ads</span>',
+                    f"{d['spend']:,.0f}",
+                    f"<span style='color:#8892a4'>{sp_pct:.0f}%</span>",
+                    fmt_num(d['imp']),
+                    f"{d['results']:,}",
+                    f"{d['cost_per_result']:,.0f}",
+                    f"{d['ctr']:.2f}%",
+                ]
+
+            rows = [r for r in [
+                _row('🤖 AI Content', ai,  '#6c63ff'),
+                _row('👤 Non-AI',     non, '#8892a4'),
+            ] if r]
+
+            if not rows:
+                return
+
+            html_table(
+                ['Group', '# Ads', 'Spent (₫)', 'Spend %', 'Imp', result_label, cost_label, 'Avg CTR'],
+                rows,
+                aligns=['left', 'center', 'right', 'center', 'right', 'right', 'right', 'right']
+            )
+
+            if ai.get('cost_per_result') and non.get('cost_per_result'):
+                diff = (ai['cost_per_result'] - non['cost_per_result']) / non['cost_per_result'] * 100
+                better = 'rẻ hơn' if diff < 0 else 'đắt hơn'
+                insight(
+                    f'AI content {cost_label.lower()}: <strong>{fmt_vnd(ai["cost_per_result"])}</strong> — '
+                    f'<strong>{better} {abs(diff):.0f}%</strong> so với Non-AI ({fmt_vnd(non["cost_per_result"])}). '
+                    f'AI: {ai["count"]} ads / {fmt_vnd(ai["spend"])} · '
+                    f'Non-AI: {non["count"]} ads / {fmt_vnd(non["spend"])}.',
+                    'accent'
+                )
+
+        engage_cmp = br.get('engage_ai_cmp', {})
+        video_cmp  = br.get('video_ai_cmp', {})
+
+        has_engage = engage_cmp.get('ai', {}).get('spend', 0) > 0 or engage_cmp.get('non_ai', {}).get('spend', 0) > 0
+        has_video  = video_cmp.get('ai',  {}).get('spend', 0) > 0 or video_cmp.get('non_ai',  {}).get('spend', 0) > 0
+
+        if has_engage:
+            st.caption("Engagement Objective")
+            _cmp_table(engage_cmp, 'Engagements', 'CPE (₫)')
+        if has_video:
+            st.caption("Video Objective")
+            _cmp_table(video_cmp, 'ThruPlay Views', 'CPV (₫)')
+        if not has_engage and not has_video:
+            st.info("Không có dữ liệu để so sánh.")
+
     editable_insight('branding', _gen_insight(br, plan_eng, plan_vid, plan_rch), 'blue')

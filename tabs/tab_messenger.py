@@ -81,7 +81,6 @@ def render(msg, crm, plan_msg, date_range):
             section("Top Ads — by Messages, Purchases & Revenue", "green")
             top_ads = msg.get('top_ads', [])
             if top_ads:
-                # Include purch and rev (from FB col[26], col[27])
                 html_table(
                     ['#', 'Ad', 'Spent (₫)', 'Msg', 'Cost/Msg', 'Purchases', 'Revenue (₫)', 'CTR'],
                     [[rank_badge(d['rank']),
@@ -103,6 +102,52 @@ def render(msg, crm, plan_msg, date_range):
                 )
             else:
                 st.info("Không có dữ liệu Top Ads Messenger.")
+
+        section("AI vs Non-AI Content — Performance Comparison", "green")
+        cmp = msg.get('ai_cmp', {})
+        ai, non = cmp.get('ai', {}), cmp.get('non_ai', {})
+        total_sp = (ai.get('spend', 0) + non.get('spend', 0)) or 1
+
+        def _msg_row(label, d, color):
+            if not d or d.get('spend', 0) == 0:
+                return None
+            sp_pct = d['spend'] / total_sp * 100
+            return [
+                f'<span style="color:{color};font-weight:600">{label}</span>',
+                f'<span style="color:#8892a4">{d["count"]} ads</span>',
+                f"{d['spend']:,.0f}",
+                f"<span style='color:#8892a4'>{sp_pct:.0f}%</span>",
+                f"{d['msg']:,}",
+                f"{d['cost_per_msg']:,.0f}",
+                f'<span style="color:{"#22c55e" if d["reply_rate"] >= 80 else "#ef4444"};font-weight:600">{d["reply_rate"]:.1f}%</span>',
+                f"{d.get('purch', 0):,}",
+                f"{d.get('rev', 0):,.0f}",
+                f"{d['ctr']:.2f}%",
+            ]
+
+        rows = [r for r in [
+            _msg_row('🤖 AI Content', ai,  '#6c63ff'),
+            _msg_row('👤 Non-AI',     non, '#8892a4'),
+        ] if r]
+
+        if rows:
+            html_table(
+                ['Group', '# Ads', 'Spent (₫)', 'Spend %', 'Msg', 'Cost/Msg (₫)', 'Reply Rate', 'Purchases', 'Revenue (₫)', 'CTR'],
+                rows,
+                aligns=['left', 'center', 'right', 'center', 'right', 'right', 'center', 'right', 'right', 'right']
+            )
+            if ai.get('cost_per_msg') and non.get('cost_per_msg'):
+                diff = (ai['cost_per_msg'] - non['cost_per_msg']) / non['cost_per_msg'] * 100
+                better = 'rẻ hơn' if diff < 0 else 'đắt hơn'
+                insight(
+                    f'AI content cost/msg: <strong>{fmt_vnd(ai["cost_per_msg"])}</strong> — '
+                    f'<strong>{better} {abs(diff):.0f}%</strong> so với Non-AI ({fmt_vnd(non["cost_per_msg"])}). '
+                    f'AI: {ai["count"]} ads / {fmt_vnd(ai["spend"])} · '
+                    f'Non-AI: {non["count"]} ads / {fmt_vnd(non["spend"])}.',
+                    'accent'
+                )
+        else:
+            st.info("Không có dữ liệu để so sánh.")
 
     else:  # CRM Sales
         date_range_banner(date_range)

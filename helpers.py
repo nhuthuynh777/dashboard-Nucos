@@ -323,8 +323,7 @@ def kpi2(label, v1, v1_sub, v2, v2_sub, color="accent", progress=None):
 
 
 def ad_name_cell(name, short):
-    return (f'<span title="{name}" style="max-width:200px;white-space:nowrap;overflow:hidden;'
-            f'text-overflow:ellipsis;display:block">{short}</span>')
+    return (f'<span title="{name}" style="display:block;line-height:1.4">{short}</span>')
 
 
 def date_range_banner(dr):

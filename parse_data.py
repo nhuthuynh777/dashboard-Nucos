@@ -43,7 +43,7 @@ def sv(v):
 def short_name(ad_name):
     n = sv(ad_name)
     n = re.sub(r'^\d{2}/\d{2}\s*[-–|]\s*', '', n)
-    return n[:60] + ('…' if len(n) > 60 else '')
+    return n.strip()
 
 
 def fv_count(v):
@@ -308,9 +308,29 @@ def parse_fb_raw(ws):
     reach_tot = agg_brand(b_reach)
     reach_tot['cpm'] = round(reach_tot['spend'] / reach_tot['imp'] * 1000) if reach_tot['imp'] else 0
 
+    # AI vs Non-AI comparison — computed from full dicts before slicing
+    def _ai_stats(d_dict):
+        sp  = sum(v['spend']      for v in d_dict.values())
+        res = sum(v['results']    for v in d_dict.values())
+        imp = sum(v['imp']        for v in d_dict.values())
+        ca  = sum(v['clicks_all'] for v in d_dict.values())
+        return dict(count=len(d_dict), spend=round(sp), results=round(res),
+                    imp=round(imp),
+                    cost_per_result=round(sp / res) if res else 0,
+                    ctr=round(ca / imp * 100, 2) if imp else 0)
+
+    engage_ai_cmp = dict(
+        ai=_ai_stats({k: v for k, v in b_engage.items() if '- AI -' in k and v['imp'] > 0}),
+        non_ai=_ai_stats({k: v for k, v in b_engage.items() if '- AI -' not in k and v['imp'] > 0}),
+    )
+    video_ai_cmp = dict(
+        ai=_ai_stats({k: v for k, v in b_video.items() if '- AI -' in k and v['imp'] > 0}),
+        non_ai=_ai_stats({k: v for k, v in b_video.items() if '- AI -' not in k and v['imp'] > 0}),
+    )
+
     # Top engage ads
     engage_ads = []
-    for rank, (name, d) in enumerate(sorted(b_engage.items(), key=lambda x: -x[1]['results'])[:5], 1):
+    for rank, (name, d) in enumerate(sorted(b_engage.items(), key=lambda x: -x[1]['results'])[:10], 1):
         ctr = round(d['clicks_all'] / d['imp'] * 100, 2) if d['imp'] else 0
         cpe = round(d['spend'] / d['results']) if d['results'] else 0
         engage_ads.append(dict(rank=rank, name=name, short_name=short_name(name),
@@ -319,7 +339,7 @@ def parse_fb_raw(ws):
 
     # Top video ads
     video_ads = []
-    for rank, (name, d) in enumerate(sorted(b_video.items(), key=lambda x: -x[1]['results'])[:5], 1):
+    for rank, (name, d) in enumerate(sorted(b_video.items(), key=lambda x: -x[1]['results'])[:10], 1):
         ctr = round(d['clicks_all'] / d['imp'] * 100, 2) if d['imp'] else 0
         cpv = round(d['spend'] / d['results']) if d['results'] else 0
         video_ads.append(dict(rank=rank, name=name, short_name=short_name(name),
@@ -359,6 +379,27 @@ def parse_fb_raw(ws):
         msg_tgt_rows.append(dict(segment=seg, spend=round(d['spend']),
                                  msg=round(d['msg']), replied=round(d['replied']),
                                  cost_per_msg=cpm_v))
+
+    def _msg_ai_stats(d_dict):
+        sp   = sum(v['spend']      for v in d_dict.values())
+        msg  = sum(v['msg']        for v in d_dict.values())
+        rep  = sum(v['replied']    for v in d_dict.values())
+        imp  = sum(v['imp']        for v in d_dict.values())
+        ca   = sum(v['clicks_all'] for v in d_dict.values())
+        pu   = sum(v['purch']      for v in d_dict.values())
+        rv   = sum(v['rev']        for v in d_dict.values())
+        return dict(count=len(d_dict), spend=round(sp), msg=round(msg),
+                    replied=round(rep),
+                    reply_rate=round(rep / msg * 100, 1) if msg else 0,
+                    cost_per_msg=round(sp / msg) if msg else 0,
+                    purch=round(pu), rev=round(rv),
+                    imp=round(imp),
+                    ctr=round(ca / imp * 100, 2) if imp else 0)
+
+    msg_ai_cmp = dict(
+        ai=_msg_ai_stats({k: v for k, v in msg_ads.items() if '- AI -' in k and v['imp'] > 0}),
+        non_ai=_msg_ai_stats({k: v for k, v in msg_ads.items() if '- AI -' not in k and v['imp'] > 0}),
+    )
 
     msg_ad_rows = []
     for rank, (name, d) in enumerate(sorted(msg_ads.items(), key=lambda x: -x[1]['msg'])[:8], 1):
@@ -401,9 +442,11 @@ def parse_fb_raw(ws):
     return dict(
         branding=dict(engage=engage_tot, video=video_tot, reach=reach_tot,
                       targeting=tgt_rows, engage_ads=engage_ads, video_ads=video_ads,
-                      total_spend=brand_total),
+                      total_spend=brand_total,
+                      engage_ai_cmp=engage_ai_cmp, video_ai_cmp=video_ai_cmp),
         messenger=dict(totals=msg_totals, campaigns=msg_camp_rows,
-                       targeting=msg_tgt_rows, top_ads=msg_ad_rows),
+                       targeting=msg_tgt_rows, top_ads=msg_ad_rows,
+                       ai_cmp=msg_ai_cmp),
         cpas=dict(totals=cpas_totals, adsets=cpas_adset_rows, top_ads=cpas_ad_rows),
         unclassified=sorted(unclassified),
     )
