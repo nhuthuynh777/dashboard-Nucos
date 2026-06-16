@@ -457,8 +457,7 @@ def parse_fb_raw(ws):
 def parse_google_raw(ws):
     """
     Header row 3 (1-indexed), data from row 4.
-    0-based: [80]=Campaign, [87]=Impressions, [88]=Interactions,
-             [92]=Cost, [95/94]=Conversions
+    0-based cols: [1]=Campaign, [10]=Impr., [14]=Cost, [18]=Clicks, [22]=Conversions
     GDN = 'gdn' in campaign name lowercase, else Search.
     """
     gdn    = defaultdict(lambda: dict(spend=0, imp=0, clicks=0, conv=0))
@@ -467,19 +466,18 @@ def parse_google_raw(ws):
     _total_row = None
 
     for row in ws.iter_rows(min_row=4, values_only=True):
-        if not row or len(row) <= 92:
+        if not row or len(row) < 15:
             continue
-        camp = sv(row[80])
+        camp = sv(row[1])
         # Capture dòng Total (camp='--' hoặc camp=None/empty sau khi strip)
         if not camp or camp == '--' or camp.lower().startswith('total'):
-            if _total_row is None and (row[92] is not None and fv(row[92]) > 0):
+            if _total_row is None and len(row) > 14 and (row[14] is not None and fv(row[14]) > 0):
                 _total_row = row
             continue
-        sp     = fv(row[92])
-        imp    = fv_count(row[87])
-        clicks = fv_count(row[88])
-        conv   = fv(row[95]) if len(row) > 95 and row[95] is not None else (
-                 fv(row[94]) if len(row) > 94 else 0)
+        sp     = fv(row[14])
+        imp    = fv_count(row[10])
+        clicks = fv_count(row[18]) if len(row) > 18 else 0
+        conv   = fv(row[22]) if len(row) > 22 and row[22] is not None else 0
 
         if 'gdn' in camp.lower():
             gdn[camp]['spend']  += sp
@@ -508,8 +506,8 @@ def parse_google_raw(ws):
                                 conv=round(d['conv'], 1), avg_cpc=cpc))
 
     if _total_row is not None:
-        total_clicks = round(fv_count(_total_row[88])) if len(_total_row) > 88 else 0
-        total_imp    = round(fv_count(_total_row[87])) if len(_total_row) > 87 else 0
+        total_clicks = round(fv_count(_total_row[18])) if len(_total_row) > 18 else 0
+        total_imp    = round(fv_count(_total_row[10])) if len(_total_row) > 10 else 0
     else:
         total_clicks = sum(d['clicks'] for d in gdn_rows) + sum(d['clicks'] for d in search_rows)
         total_imp    = sum(d['imp']    for d in gdn_rows) + sum(d['imp']    for d in search_rows)
