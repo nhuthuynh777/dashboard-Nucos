@@ -31,8 +31,8 @@ def _gen_insight(gg):
 
 
 def render(gg):
-    gdn_data    = gg.get('gdn', [])
-    search_data = gg.get('search', [])
+    gdn_data    = [d for d in gg.get('gdn', [])    if d['spend'] > 0]
+    search_data = [d for d in gg.get('search', []) if d['spend'] > 0]
     kw_data     = gg.get('keywords', [])
     gdn_spend   = sum(d['spend']  for d in gdn_data)
     gdn_imp     = sum(d['imp']    for d in gdn_data)
